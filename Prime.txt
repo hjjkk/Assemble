@@ -1,0 +1,227 @@
+data segment
+	sum dw ?
+	num db ?
+	prime db 100 dup(?)
+	max dw 100
+	x db 10
+	tmp db 5;每个数字分配的输出长度
+	cnt dw ?
+	n dw ?
+	row db ?
+	col db ?
+	p dw 65000;空循环以设置延迟
+	flag db ?;输出何种颜色标志
+	str1 db 'average of primes is $'
+data ends
+
+code segment
+assume cs:code,ds:data
+main proc far
+start:
+	mov ax,data
+	mov ds,ax
+	
+	mov ax,0003h
+	int 10h
+	mov ax,0002h
+	int 10h
+	call GenPrime
+;-------------------------
+	mov n,2
+	mov cx,99
+	
+	mov flag,04h
+	Ltest:
+	push cx
+	call SetLocation
+	call ShowPrime
+	inc n
+	pop cx
+	loop Ltest
+
+	
+	mov cnt,8
+	mov n,2
+	Ltotal:
+	
+	push n
+;--------------------------n是因子,如果n是素数，则把n的倍数筛除,(即输出背景色的数字)；如果n不是素数，则执行n++,跳到下一次筛选
+	mov bx,n
+	cmp prime[bx],1;
+	jne Ln
+	l9:
+	mov flag,00h;flag为背景色
+	add n,bx
+	cmp n,100
+	jg Ln
+	push bx
+	call SetLocation
+	call ShowPrime
+	
+	pop bx
+	cmp n,100
+	jl l9
+	
+	Ln:
+	pop n
+	inc n
+	cmp cnt,0
+	dec cnt
+	jne Ltotal
+	
+	call ShowAverage
+	
+	mov ax,4c00h
+	int 21h
+main endp
+;----------------------------------------
+GenPrime proc near
+	mov cx,100
+	mov bx,0
+	
+	SetPri:
+	mov prime[bx],1
+	inc bx
+	mov ax,bx
+	
+	loop SetPri
+	mov bx,2
+	mov dl,0
+	
+	GetPri:
+	push bx
+	
+	mov ax,bx
+	cmp prime[bx],1
+	jne next
+	SetTimePri:
+	add bx,ax
+	cmp bx,100
+	jge next
+	mov prime[bx],dl
+	jmp SetTimePri
+	
+	
+	
+	next:
+	pop bx
+	inc bx
+	cmp bx,100
+	jne GetPri
+	;生成100以内的素数表，存入prime数组
+	ret
+	GenPrime endp
+;---------------------------------------
+
+
+SetLocation proc near ;为n定位	
+	mov ax,n
+	div x
+	mov row,al
+	mov al,ah
+	mul tmp
+	mov col,al
+	mov ah,02h
+	mov dh,row
+	mov dl,col
+	int 10h
+	ret
+SetLocation endp
+
+ShowPrime proc near;输出n
+	mov si,0
+	mov ax,n
+	
+	L2:
+	div x
+	push ax
+	mov ah,0
+	inc si
+	cmp al,0
+	jne L2
+	
+	L3:
+	pop ax
+	mov al,ah
+	add al,30h
+	
+	mov ah,09h
+	mov bh,0
+	mov bl,flag
+	mov cx,1
+	int 10h
+	
+	mov ah,03h
+	int 10h;获取光标的xy坐标存入dh，dl中
+	
+	mov ah,02h
+	inc dl
+	int 10h
+	
+	mov cx,p;
+	lstop:
+	loop lstop
+	
+	dec si
+	cmp si,0
+	jne L3
+	ret
+ShowPrime endp
+
+ShowAverage proc near
+	mov ah,03h
+	int 10h
+	mov ah,02h
+	add dh,2
+	mov dl,0
+	int 10h
+	mov ah,09h
+	lea dx,str1
+	int 21h
+	
+	mov flag,04h
+	
+	mov bx,2
+	L5:
+	cmp prime[bx],1
+	jne L4
+	add sum,bx
+	inc num
+	L4:
+	inc bx
+	cmp bx,100
+	jne L5
+	
+	
+	mov ax,sum
+	mov n,ax
+	call ShowPrime
+	mov ah,02h
+	mov dl,'/'
+	int 21h
+	
+	mov al,num
+	mov ah,0
+	mov n,ax
+	call ShowPrime
+	
+	mov ah,02h
+	mov dl,'='
+	int 21h
+	
+	mov ax,sum
+	div num
+	add ah,ah
+	cmp ah,num;余数是否大于除数的一半，大于则进位(五入),否则不进位(四舍)
+	jb L6
+	add al,1;进位
+	L6:
+	mov ah,0
+	mov n,ax
+	call ShowPrime
+
+	ret
+ShowAverage endp
+
+code ends
+end start
